@@ -2,7 +2,7 @@
 layout: distill
 title: The effect of feature resolution on embedding dimension
 
-description: High-dimensional data can be compressed into lower-dimensional embeddings while retaining a relatively large amount of relevant information, a phenomenon which, despite its widespread use, we struggle to fully explain. In this post, we use a common property of datasets - a limit on the number of features per data point - to show how a slight uniform dependence between features can be exploited to reduce the required dimensions by at least a third, while sacrificing no information about the features. To do so, we introduce the concepts of dataset resolution and feature composition of a dataset, and analyse how a set of orderings of the dataset affect the types of partitions we can create of the dataset.
+description: High-dimensional data can be compressed into lower-dimensional embeddings while retaining a relatively large amount of relevant information, a phenomenon which, despite its widespread use, we struggle to fully explain. In this post, we use a common property of datasets - a limit on the number of features per data point - to show how a slight uniform dependence between features can be exploited to reduce the required dimensions by at least a third, while sacrificing no information about the features. To do so, we introduce the concepts of dataset resolution and feature composition of a dataset, and analyse how a set of orderings of the dataset affects the types of partitions we can create of the dataset.
 
 date: 2026-04-27
 future: true
@@ -111,7 +111,7 @@ $$\{ \}$$
     </div>
 </div>
 
-In general, $n$ features give rise to $\sum_{i=0}^{n} \binom{n}{i}$ combinations. The binomial theorem says $\sum_{i=0}^{n} \binom{n}{i} = 2^n$, and indeed, there is a natural way to map the existence of features to binary representations:
+From this point on, we shall not consider the empty set, since it can be argued that a data point which does not contain any features in the dataset is out of distribution. In general, $n$ features give rise to $\sum_{i=0}^{n} \binom{n}{i}$ combinations. The binomial theorem says $\sum_{i=0}^{n} \binom{n}{i} = 2^n$, and indeed, there is a natural way to map the existence of features to binary representations:
 
 {% include figure.liquid path="assets/img/2026-04-27-feature-reduction/combinations-table-boolean-final.svg" class="img-fluid" %}
 
@@ -121,15 +121,11 @@ With the above binary values, we can order the dataset in at least four unique w
 
 We can also create four partitions of the dataset, each based on whether a certain feature exists in a combination:
 
-[do four separate partitions first, then all four at the same time]
-
-$$\{ \}$$
-
 {% include figure.liquid path="assets/img/2026-04-27-feature-reduction/combinations-partitioned-ld.svg" class="img-fluid" %}
 
-Partitions quickly become messy to visualise, though. Expressing all possible combinations by partitions requires drawing a venn diagram, which becomes difficult when we want to consider more than three features.
+Partitions quickly become messy to visualise, though.
 
-We can also view the structural information of feature composition through the lens of set inclusion, which can be naturally expressed through a _partial_ order. We define a partial order on the combinations: for combinations $x$ and $y$, let $x \leq y$ ifand only if $x \subseteq y$. So if combination $y$ contains every feature in combination $x$, then $x \leq y$. A set $S$ with a partial order $\leq_P$ on it is called a poset (which we will often call $P$). We can represent our poset as a directed graph where edges connect related combinations, pointing from the lesser to the greater element. The graph below shows this structure without indicating direction:
+We can also view the structural information of feature composition through the lens of set inclusion, which can be naturally expressed through a _partial_ order. We define a partial order on the combinations: for combinations $x$ and $y$, let $x \leq y$ ifand only if $x \subseteq y$. So if combination $y$ contains every feature in combination $x$, then $x \leq y$. A set $S$ with a partial order $\leq_P$ on it is called a poset $P = (S, \leq_P)$. We can represent our poset as a directed graph where edges connect related combinations, pointing from the lesser to the greater element. The graph below shows this structure without indicating direction:
 
 <div class="l-page-outset">
   <iframe src="{{ 'assets/html/2026-04-27-feature-reduction/kinetic-graph-hierarchical (6).html' | relative_url }}" frameborder='0' scrolling='no' height="750px" width="100%"></iframe>
@@ -171,7 +167,7 @@ For text, a similar principle applies: you would have to write an enormously lon
 
 Dataset resolution is defined with respect to a set of features, by necessity. For example, the pixel resolution of a dataset of images of animals could be 28x28, but the RGB resolution would be 28x28x3, and the animal resolution could be two (if we always have two animals appear in each image).
 
-A full four-feature dataset with resolution two has data points which contain two of four features. Suppose we want to be able to identify existence of each feature in a (full) dataset with resolution $k$. Then preserving the following combinations and partial order will ensure that the preserve enough information to identify features:
+A full four-feature dataset with resolution two has data points which contain two of four features. Suppose we want to be able to identify existence of each feature in a (full) dataset with resolution $k$. Then preserving the following combinations and partial order will ensure that we preserve enough information to identify features:
 
 {% include figure.liquid path="assets/img/2026-04-27-feature-reduction/combinations_with_arrows.svg" class="img-fluid" %}
 
@@ -281,7 +277,7 @@ $$
 \right]
 $$
 
-Note the actual values of the rankings do not matter so much as the order which they preserve.
+Note the values of the rankings do not matter as much as the order which they preserve.
 
 Let us retrieve each of the features using a similarity function $s$. If we do suppose the values are what is indicated above, we could retrieve "$a$ is in this item" by applying to each embedding the condition $x>3$. Alternatively, we could multiply the rows are follows:
 
@@ -347,7 +343,7 @@ This view of our problem is far more similar to the partitions we showed in the 
 
 That's quite a mouthful. For now, we restrict ourselves to asking: can we embed three features in every two dimensions of an embedding, in the way we just did? In other words, if I have six dimensions, can I embed one feature in the "not"-space of each pair of independent dimensions, allowing me to embed nine features into six?
 
-Maybe you are convinced we can, since the added features are orthogonal to all features in the pre-existing dimensions. We cna prove this by induction:
+Maybe you are convinced we can, since the added features are orthogonal to all features in the pre-existing dimensions. Let us confirm this with a proof by induction:
 
 <div class="proof-block l-body-outset">
 <p style="margin-left: 15px; margin-right: 15px">

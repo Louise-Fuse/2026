@@ -14,7 +14,12 @@ mermaid:
   zoomable: true
 
 authors:
-  - name: Anonymous
+  - name: Louise Beyers
+    affiliations:
+      name: Bytefuse
+  - name: Ruan van der Merwe
+    affiliations:
+      name: Bytefuse
 
 bibliography: 2026-04-27-feature-reduction.bib
 

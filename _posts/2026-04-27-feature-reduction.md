@@ -46,42 +46,42 @@ Which inspired the question: how does that actually affect the number of dimensi
 
 The following post uses that question as a loose cloak to explore the effects of the feature composition of a dataset on how it can be embedded.
 
-## What is the feature composition of a dataset?
+## The problem statement
+
+Let's refine our goal.
+
+Given a set of documents, for each document, we would like to be able to identify each unique word in that document - so we throw away word order and repetitions, and only care about whether a word appears or does not appear in a document. 
+
+Our question is: when each document in a corpus contains a certain number of unique words which is smaller than the total number of unique words in the dataset, how does that affect the number of dimensions we need to embed each document in such a way that we can still identify from the embedding whether any given word is contained in that document or not?
+
+In this formulation, we care about a "yes" or "no" answer; similar to Weller et al.  <d-cite key="weller2025"></d-cite>, we do not care about distances between embeddings, but rather whether we can divide the embeddings into "contains this word" and "does not contain this word", for all words and embeddings in a dataset.
+
+It was not explicitly mentioned above, but for Weller et al.'s  <d-cite key="weller2025"></d-cite> paper, the target words considered were assigned uniformly across documents. Similarly, we disregard any dependence which crops up as a result of language structure, or of an unbalanced occurrence of words (i.e. in our context, "preposterous" is just as likely to be in a document as "the"). 
+
+The only dependence that exists in our context is that each document contains a limited number of unique words. Note that if in practice there do exist further dependencies in terms of balance or language structure, they can likely be exploited on top of exploiting our dependence. 
+
+
+## Mapping from words to features
+
+So far, we have been speaking in terms of "words" in "documents", but ideally, we would like to have a more general take on the problem at hand. To facilitate this, we discuss how to handle heterogeneous feature sets, and what sort of information we might care to preserve in a dataset with heterogeneous features.
 
 A feature of a data point is a property of the data point which can be used to describe it. When the data points in a dataset are embedded, usually their embeddings share a set of features, specifically so that the data point embeddings can be compared. However, in the original dataset, data points might have been represented using vastly different features.
 
 For example, a hypotenuse is a property of a right-angled triangle. But in a dataset of shapes, what is the hypotenuse of a circle? The question doesn’t make sense, because the feature does not exist in the "circle" data point.
 
-So if we want to talk about features which are common to all data points in a dataset, we need to be able to handle the case where the feature does not exist. Luckily, we can do this by defining how we handle nonexistence of a feature in a data point:
+What went wrong here? We tried to evaluate a data point for a certain property that it doesn't have. This is something that happened when we tried to pool features across multiple data points, and so the feature set for a single data point was not informed solely by that data point's properties.
 
-<div class="proof-block l-body-outset">
-<p style="margin-left: 15px; margin-right: 15px">
-<em>Definition</em>:  <b>Feature of a dataset</b>
-<br>
-Given a dataset $D = {d_0, \ldots , d_n}$, with $d_i$ one data point in $D$, suppose there exists a function $g$ from $D_g \subseteq D$ to a set of values $v_g$. Then we can define the feature associated with $D$ and $g$, $f$, as a function:
+This failure point informs us that while a feature of one data point in isolation can be safely viewed as a value, when we get information about a feature across a dataset, we require the querying process to behave like a function. This may affect the values we need to assign to the data point. Often when we think of the definition of a function, we focus only on the fact that one input cannot be mapped to multiple outputs. However, in a function every input must be mapped to exactly one element, and so it is also not allowed for a function to map an input to nothing.
 
-$$
-f(d_i) =
-\begin{cases}
-g(d_i) & \text{ if } d_i \in D_g \\
-x & \text{ if } d_i \not \in D_g
-\end{cases}
-$$
+So if we want to talk about features which are common to all data points in a dataset, we need to be able to handle the case where the feature does not exist. Most simply, we can do this by selecting a value to represent "nonexistence" of a feature in a dataset. An example of such a value is a NaN appearing in a tabular dataset.
 
-where $ x \not \in v_g$.
+As we noted, requiring a feature query to act like a function means it can only map one data point to at most one output. This makes sense - for example, if a dataset of creatures has one creature per data point, then "number of eyes of a creature" will always give you one number (even if that number is zero). However, as soon as the dataset has more than one creature for a data point, the "number of eyes of a creature" for a data point is unclear; does a picture of a spider and a horse have eight "eyes of a creature", or two, or both? The feature query has become nonsensical, because it maps to two values.
 
-</p>
-</div>
+Why does it matter that we understand that a feature query should act like a function? The most important answer to this is that we understand where space is wasted, and what we can compress. If a data point is represented by the set of all features across the dataset, and it must have a value for each feature even when it does not contain that feature, each appearance of a "does not exist" value is wasted space. On the other hand, we cannot for example compress two features into one when there is any data point which contains both, since that would result in a combined feature which maps at least one data point to two values, violating the requirement that a feature query behaves like a function.
 
-In other words, a feature of a dataset is a function on the dataset which maps it to a column with exactly one entry for each row of the dataset, with one entry value specially reserved to indicate nonexistence.
+Now that we have a better understanding of heterogeneous feature sets in a dataset, we can talk about the feature composition of a dataset.
 
-Since $f$ is a function, it can only map a data point to one output. This makes sense - for example, if a dataset of creatures has one creature per data point, then "number of eyes of a creature" will always give you one number (even if that number is zero). However, as soon as the dataset has more than one creature for a data point, the "number of eyes of a creature" for a data point is unclear; does a picture of a spider and a horse have eight "eyes of a creature", or two, or both?
-
-But this definition of a feature does not only _limit_, it also _allows_ - if you want to apply your feature to a new data point, or rather to a new case, you can add to your set of feature values, with the caveat that the value you add cannot be the same as any one used to represent feature nonexistence.
-
-Now that we have a definition for a feature with respect to a dataset, we can talk about the feature composition of a dataset.
-
-Let’s go back to our question of “how many words can you represent in x dimensions given a corpus of documents?”. We can treat word existence as a feature of the corpus, or dataset, for each word in the dataset. Then each document can be represented by indicating existence or nonexistence for each word in the vocabulary, and we would care about the different combinations of words which occur.
+Let’s go back to our question regarding the number of dimensions needed to represent all words in a corpus of documents where each document contains a subset of all the words that appear. We can treat word existence as a feature of the corpus, or dataset, for each word in the dataset. Then each document can be represented by indicating existence or nonexistence for each word in the vocabulary, and we would care about the different combinations of words which occur.
 
 **Feature composition** is concerned with the unique combinations of feature existences in a dataset. One possible feature composition of a dataset with features `dog`, `cat` `horse`, and `fish` looks as follows:
 
@@ -125,7 +125,7 @@ We can also create four partitions of the dataset, each based on whether a certa
 
 Partitions quickly become messy to visualise, though.
 
-We can also view the structural information of feature composition through the lens of set inclusion, which can be naturally expressed through a _partial_ order. We define a partial order on the combinations: for combinations $x$ and $y$, let $x \leq y$ ifand only if $x \subseteq y$. So if combination $y$ contains every feature in combination $x$, then $x \leq y$. A set $S$ with a partial order $\leq_P$ on it is called a poset $P = (S, \leq_P)$. We can represent our poset as a directed graph where edges connect related combinations, pointing from the lesser to the greater element. The graph below shows this structure without indicating direction:
+We can also view the structural information of feature composition through the lens of set inclusion, which can be naturally expressed through a _partial_ order. We define a partial order on the combinations: for combinations $x$ and $y$, let $x \leq y$ if and only if $x \subseteq y$. So if combination $y$ contains every feature in combination $x$, then $x \leq y$. A set $S$ with a partial order $\leq_P$ on it is called a poset $P = (S, \leq_P)$. We can represent our poset as a directed graph where edges connect related combinations, pointing from the lesser to the greater element. The graph below shows this structure without indicating direction:
 
 <div class="l-page-outset">
   <iframe src="{{ 'assets/html/2026-04-27-feature-reduction/kinetic-graph-hierarchical (6).html' | relative_url }}" frameborder='0' scrolling='no' height="750px" width="100%"></iframe>
@@ -137,9 +137,9 @@ Our original question only requires identifying individual features within data 
 
 We now consider one last formulation of our problem. To do so, we map from our poset to a set of linear orders in the following way:
 
-Given a poset $P$ with a partial order $\leq_P$ on a set of combinations $S$, we create a set of linear orders on $S$, $\mathcal{L} = \{L_1, \ldots , L_n\}$ - in simpler terms, we create a set of rankings of the combinations where no two combinations get the same rank in any one ranking. The set of rankings has the property that for every two combinations $x$ and $y$, $x < y$ in $P$ if and only if in every ranking, $x < y$. The set $\mathcal{L}$ is called a realizer of $P$<d-cite key="dushnik1941"></d-cite>. This property automatically means that if $x$ is not comparable to $y$ in $P$ then $x>y$ in at least one of the rankings.
+Given a poset $P$ with a partial order $\leq_P$ on a set of combinations $S$, we create a set of linear orders on $S$,  $\mathcal{L} = \{L_1, \ldots , L_n\}$ - in simpler terms, we create a set of rankings of the combinations where no two combinations get the same rank in any one ranking. The set of rankings has the property that for every two combinations $x$ and $y$, $x < y$ in $P$ if and only if in every ranking, $x < y$. The set $\mathcal{L}$ is called a realizer of $P$<d-cite key="dushnik1941"></d-cite>. This property automatically means that if $x$ is not comparable to $y$ in $P$ then $x>y$ in at least one of the rankings.
 
-For example, since `{horse,cat}` and `{dog,fish}` share no features, they cannot be compared by our order, and so we have neither `{horse,cat}` $\leq$ `{dog,fish}`, nor `{horse,cat}` $\geq$ `{dog,fish}`. We therefore need to have at least one ranking where `{horse,cat}` $>$ `{dog,fish}` and at least one ranking where `{horse,cat}` $<$ `{dog,fish}`. Since you cannot rank an item as both greater and lesser than another item in one linear order, you need at least two rankings to realise this.
+For example, since `{horse,cat}` and `{dog,fish}` share no features, they cannot be compared by our order, and so we have neither `{horse,cat}` $\leq$ `{dog,fish}`, nor `{horse,cat}` $\geq$ `{dog,fish}`. We therefore need to have at least one ranking where `{horse,cat}` $>$ `{dog,fish}` and at least one ranking where `{horse,cat}` $<$ `{dog,fish}`. Since you cannot rank an item as both greater and lesser than another item in one linear order, you need at least two rankings to realize this.
 
 A realizer for this poset might look like:
 
@@ -194,7 +194,7 @@ But what is the grey area? It is precisely the area that indicates _not_ green a
   <iframe src="{{ 'assets/html/2026-04-27-feature-reduction/vector_diagram_all_interactive.html' | relative_url }}" frameborder='0' scrolling='no' height="750px" width="100%"></iframe>
 </div>
 
-There is one more thing to note here: recall when we said that the dependence that dataset resolution creates is uniform? We would then expect that an efficient embedding would treat each feature the same. Indeed, if you space the base features evenly in the figure, that admits a valid embedding (and one could convince onesself that it is the configuration furthest from being an invalid embedding).
+There is one more thing to note here: recall when we said that the dependence that dataset resolution creates is uniform? We would then expect that an efficient embedding would treat each feature the same. Indeed, if you space the base features evenly in the figure, that admits a valid embedding (and one could convince oneself that it is the configuration furthest from being an invalid embedding).
 
 Let us move to three dimensions. Trivially, you could add one more feature, since an extra dimension is available.
 
@@ -213,7 +213,7 @@ The intuitions we have gained around uniformity and embedding in "not"-space hav
 
 In order to express our problem in higher dimensions, we turn to the constructions of order theory - in particular, the dimension of a suborder of a Boolean lattice, as addressed previously.
 
-First, let us see what happens when we try to find a two-dimensional realiser of $B_3(1,2)$.
+First, let us see what happens when we try to find a two-dimensional realizer of $B_3(1,2)$.
 
 <div class="proof-block l-body-outset">
 <p style="margin-left: 15px; margin-right: 15px">
@@ -221,7 +221,7 @@ Let us call our features $a$, $b$ and $c$. Then our combinations are $a$, $b$, $
 
 {% include figure.liquid path="assets/img/2026-04-27-feature-reduction/linear_order_elements.svg" class="img-fluid" %}
 
-We have reached a contradiction. It is therefore not possible to have a two-dimensional realiser for layers 1 and 2 of the Boolean lattice $\mathcal{B}_3$.
+We have reached a contradiction. It is therefore not possible to have a two-dimensional realizer for layers 1 and 2 of the Boolean lattice $\mathcal{B}_3$.
 
 </p>
 </div>
@@ -279,7 +279,7 @@ $$
 
 Note the values of the rankings do not matter as much as the order which they preserve.
 
-Let us retrieve each of the features using a similarity function $s$. If we do suppose the values are what is indicated above, we could retrieve "$a$ is in this item" by applying to each embedding the condition $x>3$. Alternatively, we could multiply the rows are follows:
+Let us retrieve each of the features using a similarity function $s$. If we do suppose the values are what is indicated above, we could retrieve "$a$ is in this item" by applying to each embedding the condition $x>3$. Alternatively, we could multiply the rows as follows:
 
 $s = \frac{1}{4}x+0y$
 
@@ -395,7 +395,59 @@ Two questions arise from this:
 
 For the first question, we conjecture that for our method of construction, you need to embed a dependent feature in the "not"-space of at least $k$ independent dimensions if your dataset resolution is $k$. We leave it to future work to confirm or deny the conjecture.
 
-The answer to the second question, to the best of our knowledge, is maybe.
+In answer to the second question, we provide some avenues of further research for bounds below.
+
+## Can we improve on this upper bound?
+
+In the following section, we provide some starting points for finding bounds of problems which may relate to our problem. We discuss the Dushnik-Miller dimension from order theory, the Johnson-Lindenstrauss lemma from distance-based embedding theory, and the lopsided disjointedness problem from communication complexity theory.
+
+### Dushnik-Miller dimension
+
+We have discussed the fact that the Dushnik-Miller dimension of a poset does not provide a tight bound for the number of dimensions required to embed a document losslessly even in a very small case.
+
+However, there are two threads which have not been tied off when it comes to the dimension of a poset:
+1. For larger cases, are the bounds found for the dimension of a poset better than what we have found?
+2. If we can create a realizer of size $n$ of a poset which preserves the information we care about in a set of documents, does that mean that we can embed the documents in $n$ dimensions a way such that we can retrieve the information we want via an inner product?
+
+For the first question, we point to a few works which handle bounds, and may provide a starting point for the interested reader to dig deeper: <d-cite key="furedi1986dimensions"></d-cite>, <d-cite key="kostochka1997dimension"></d-cite>, <d-cite key="brightwell1994dimension"></d-cite>, <d-cite key="booleanlayercake"></d-cite>, <d-cite key="barreracruz2020"></d-cite>, and <d-cite key="dushnik1941"></d-cite>.
+
+The second question also remains an area of research. Certainly if a realizer of size $n$ can be made, then the information we care about is captured. It may be worth investigating whether extracting information from a realizer could be more efficient than using an inner product.
+
+### Distance-based limits
+
+In this blog post, we have only focused on preserving the ability to order a dataset, and have barely discussed the actual values of the outputs of the functions which induce the order. Often, we obtain these values through a metric (like the norm of an inner product). Preserving the actual values produced by such a metric is particularly useful when the metric is used for similarity and we attribute meaning to similarity values, and not just the order of similarities in a dataset.
+
+Isometric and approximate embeddings are defined in terms of their ability to preserve distances between data points in the embedding space. Isometric embeddings, where distances are exactly preserved, will also preserve the orders induced by the distances within a dataset, and so any bounds found in terms of isometric embeddings also apply to our problem (specifically when distance is used for ordering the dataset). Approximate embeddings, though, merely limit the deviation of the distances between points in the embedding space from the original distances between them. There is therefore opportunity for approximate embeddings to lose order information - if the distances may differ in multiple directions, two points which were a similar distance from a third point might swap the order of their distances to the third point while still being within that error bound. We analyse the following lemma as a way to see how results from approximate embedding theory might relate to order preservation.
+
+<details>
+<summary> The Johnson-Lindenstrauss lemma </summary>
+
+The Johnson-Lindenstrauss lemma <d-cite key="johnson1984extensions"></d-cite> is applicable to approximate embeddings.
+
+It states that given $\epsilon \in (0,1)$, a set $W$ of $N$ points in $\mathcal{R}^n$, and an integer $a > \frac{8\ln{N}}{\epsilon^2}$ there exists a linear map $f:\mathcal{R}^n \rightarrow \mathcal{R}^a$ such that:
+
+$$ 1- \epsilon \leq \frac{\lvert \lvert f(u) - f(v) \rvert \rvert}{\lvert \lvert u - v \rvert \rvert} \leq 1 + \epsilon$$
+
+for all $u,v \in W$.
+
+As seen above, the Johnson-Lindenstrauss lemma is valid for epsilon in the range of $(0,1)$, and the distance between a pair of embedded points may vary by a factor dependent on epsilon when they are embedded in a space of a different dimension. The factor is in the range of $(0,2)$. The smaller we make epsilon, the smaller that range becomes, shrinking in the limit to $1$. This would give an isometric embedding, since the distances would be preserved. However, as we shrink epsilon, the number of dimensions that the lemma says we can use for embeddings, $a$, approaches infinity, which does not help us at all.
+
+Whether we could use this lemma to determine whether precise orderings can be preserved or not is therefore dependent on finding a value for epsilon which is small enough that our room for error is small (if distances may differ from their original values by a factor of between $0.5$ and $1.5$, then there really is no guarantee that the order of the distances is preserved) but large enough that the boundary actually provides a number of dimensions below the smallest number we have found so far through other methods.
+
+Perhaps a good starting point would be to identify cases where we can guarantee that the differences between distances at the thresholds of all the orders we care about are always above a certain factor of the distances themselves. In other words, can we embed in such a way that an embedding of a single feature is a lot closer to all embeddings of data points containing that feature than all embeddings of data points not containing that feature?
+
+</details>
+
+
+Further research in this direction may be beneficial for linking distance-preserving results to order-preserving results, and understanding the relationships between the results we have for both so far.
+
+### Communication complexity of subset inclusion
+
+The paper which inspired this blog post used communication complexity for their analyses, and indeed the field of communication complexity fits this topic rather well.
+
+In fact, the problem of lopsided disjointedness <d-cite key="rao2020communication"></d-cite> may be very applicable to our problem. Remember when we framed the document structure we wanted to preserve as a poset, ordered by set inclusion? The problem of lopsided disjointedness in communication complexity asks whether two sets are disjoint, when one set is a subset of a set $Y$ of size $n$ and the other is a subset of a subset of $Y$, $X$, where the size of $X$ is $k<n$. This problem concerns finding out when sets are disjoint, but if we always know when sets are disjoint then we also know when they are not disjoint, which is applicable for us.
+
+The communication complexity of lopsided disjointedness is at least $\log{\binom{n}{k}}$ bits <d-cite key="rao2020communication"></d-cite>. However, there is still work to be done in relating the number of bits required for communication to dimensions. We leave further investigations to the interested reader.
 
 ## Conclusion
 

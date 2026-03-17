@@ -25,11 +25,17 @@ bibliography: 2026-04-27-feature-reduction.bib
 
 toc:
   - name: Introduction
-  - name: What is the feature composition of a dataset?
+  - name: The problem statement
+  - name: Mapping from words to features
   - name: Dataset resolution and embedding dimension
     subsections:
       - name: Intuition
       - name: Intuition for dimensions four and above
+  - name: Can we improve on this upper bound?
+    subsections:
+      - name: Dushnik-Miller dimension
+      - name: Distance-based limits
+      - name: Communication complexity of lopsided disjointedness
   - name: Conclusion
 
 _styles: >
@@ -446,7 +452,7 @@ Perhaps a good starting point would be to identify cases where we can guarantee 
 
 Further research in this direction may be beneficial for linking distance-preserving results to order-preserving results, and understanding the relationships between the results we have for both so far.
 
-### Communication complexity of subset inclusion
+### Communication complexity of lopsided disjointedness
 
 The paper which inspired this blog post used communication complexity for their analyses, and indeed the field of communication complexity fits this topic rather well.
 
